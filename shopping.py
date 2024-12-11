@@ -10,7 +10,7 @@ def load_data():
 data = load_data()
 
 # Ustawienia strony
-st.title("Shopping Trends Dashboard")
+st.title("aplikacja wersja druga")
 st.sidebar.title("Opcje analizy")
 
 # Filtry
