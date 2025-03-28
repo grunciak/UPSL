@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Analiza ryzyka", layout="wide")
 st.title("🔐 Analiza ryzyka systemów teleinformatycznych")
 
-# Funkcja klasyfikująca poziom ryzyka
+# Klasyfikacja poziomu ryzyka
 def klasyfikuj_ryzyko(poziom):
     if poziom <= 6:
         return "Niskie"
@@ -13,7 +13,7 @@ def klasyfikuj_ryzyko(poziom):
     else:
         return "Wysokie"
 
-# Domyślne dane
+# Domyślna lista zagrożeń
 default_risks = [
     {"Zagrożenie": "Awaria serwera", "Prawdopodobieństwo": 4, "Wpływ": 5},
     {"Zagrożenie": "Atak DDoS", "Prawdopodobieństwo": 3, "Wpływ": 4},
@@ -21,49 +21,60 @@ default_risks = [
     {"Zagrożenie": "Utrata zasilania", "Prawdopodobieństwo": 2, "Wpływ": 2}
 ]
 
-# Przechowywanie danych w sesji
+# Dane w sesji
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame(default_risks)
 
-# Oblicz poziom ryzyka
-df = st.session_state.df.copy()
-df["Poziom ryzyka"] = df["Prawdopodobieństwo"] * df["Wpływ"]
-df["Klasyfikacja"] = df["Poziom ryzyka"].apply(klasyfikuj_ryzyko)
-
-# 🎨 Kolorowanie
-def koloruj_komorki(val):
-    if isinstance(val, (int, float)):
-        return ""
-    if val == "Niskie":
-        return "background-color: #d4edda"  # zielony
-    elif val == "Średnie":
-        return "background-color: #fff3cd"  # żółty
-    elif val == "Wysokie":
-        return "background-color: #f8d7da"  # czerwony
-    return ""
-
-# 📋 Filtrowanie
-st.subheader("📋 Filtruj ryzyka według poziomu")
-wybor = st.radio("Wybierz poziom ryzyka", ["Wszystkie", "Niskie", "Średnie", "Wysokie"], horizontal=True)
-
-if wybor != "Wszystkie":
-    filtrowany_df = df[df["Klasyfikacja"] == wybor]
-else:
-    filtrowany_df = df
-
-# Wyświetl
-st.dataframe(filtrowany_df.style.applymap(koloruj_komorki, subset=["Klasyfikacja"]), use_container_width=True)
-
-# ➕ Formularz dodawania
+# ➕ Dodawanie nowego ryzyka
 st.subheader("➕ Dodaj nowe zagrożenie")
-with st.form("add_form"):
+with st.form("add_risk_form"):
     name = st.text_input("Opis zagrożenia")
     prob = st.slider("Prawdopodobieństwo (1-5)", 1, 5, 3)
     impact = st.slider("Wpływ (1-5)", 1, 5, 3)
-    submit = st.form_submit_button("Dodaj")
+    submitted = st.form_submit_button("Dodaj")
 
-    if submit and name.strip() != "":
-        new_row = {"Zagrożenie": name, "Prawdopodobieństwo": prob, "Wpływ": impact}
-        st.session_state.df.loc[len(st.session_state.df)] = new_row
-        st.success("Zagrożenie dodane. Odśwież tabelę wybierając inny filtr lub zmieniając poziom.")
+    if submitted and name.strip() != "":
+        st.session_state.df.loc[len(st.session_state.df)] = {
+            "Zagrożenie": name,
+            "Prawdopodobieństwo": prob,
+            "Wpływ": impact
+        }
+        st.success("Zagrożenie dodane!")
 
+# ✏️ Edycja istniejących danych
+st.subheader("✏️ Edytuj istniejące ryzyka")
+edited_df = st.data_editor(
+    st.session_state.df[["Zagrożenie", "Prawdopodobieństwo", "Wpływ"]],
+    num_rows="dynamic",
+    use_container_width=True,
+    key="editor"
+)
+
+# Oblicz poziom ryzyka i klasyfikację
+edited_df["Poziom ryzyka"] = edited_df["Prawdopodobieństwo"] * edited_df["Wpływ"]
+edited_df["Klasyfikacja"] = edited_df["Poziom ryzyka"].apply(klasyfikuj_ryzyko)
+
+# 📋 Filtrowanie
+st.subheader("📋 Filtrowanie według poziomu ryzyka")
+filtr = st.radio("Pokaż tylko:", ["Wszystkie", "Niskie", "Średnie", "Wysokie"], horizontal=True)
+
+if filtr != "Wszystkie":
+    df_filtered = edited_df[edited_df["Klasyfikacja"] == filtr]
+else:
+    df_filtered = edited_df
+
+# 🎨 Kolorowanie
+def koloruj(val):
+    if val == "Niskie":
+        return "background-color: #d4edda"
+    elif val == "Średnie":
+        return "background-color: #fff3cd"
+    elif val == "Wysokie":
+        return "background-color: #f8d7da"
+    return ""
+
+st.subheader("📊 Macierz ryzyka")
+st.dataframe(df_filtered.style.applymap(koloruj, subset=["Klasyfikacja"]), use_container_width=True)
+
+# Aktualizuj sesję
+st.session_state.df = edited_df.drop(columns=["Poziom ryzyka", "Klasyfikacja"])
