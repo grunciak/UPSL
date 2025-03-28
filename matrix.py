@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Analiza ryzyka", layout="wide")
 st.title("🔐 Analiza ryzyka systemów teleinformatycznych")
 
-# Klasyfikacja poziomu ryzyka
+# Funkcja klasyfikująca poziom ryzyka
 def klasyfikuj_ryzyko(poziom):
     if poziom <= 6:
         return "Niskie"
@@ -21,7 +21,7 @@ default_risks = [
     {"Zagrożenie": "Utrata zasilania", "Prawdopodobieństwo": 2, "Wpływ": 2}
 ]
 
-# Dane w sesji
+# Wczytanie danych do sesji
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame(default_risks)
 
@@ -34,32 +34,32 @@ with st.form("add_risk_form"):
     submitted = st.form_submit_button("Dodaj")
 
     if submitted and name.strip() != "":
-        st.session_state.df.loc[len(st.session_state.df)] = {
-            "Zagrożenie": name,
-            "Prawdopodobieństwo": prob,
-            "Wpływ": impact
-        }
-        st.success("Zagrożenie dodane!")
+        new_row = {"Zagrożenie": name, "Prawdopodobieństwo": prob, "Wpływ": impact}
+        st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_row])], ignore_index=True)
+        st.success("Zagrożenie dodane.")
 
-# ✏️ Edycja istniejących danych
-st.subheader("✏️ Edytuj istniejące ryzyka")
+# ✏️ Edytuj ryzyka w interaktywnej tabeli
+st.subheader("✏️ Edytuj macierz ryzyka")
 edited_df = st.data_editor(
-    st.session_state.df[["Zagrożenie", "Prawdopodobieństwo", "Wpływ"]],
+    st.session_state.df,
     num_rows="dynamic",
     use_container_width=True,
-    key="editor"
+    key="risk_editor"
 )
+
+# Zapisz zmodyfikowaną tabelę do sesji
+st.session_state.df = edited_df.copy()
 
 # Oblicz poziom ryzyka i klasyfikację
 edited_df["Poziom ryzyka"] = edited_df["Prawdopodobieństwo"] * edited_df["Wpływ"]
 edited_df["Klasyfikacja"] = edited_df["Poziom ryzyka"].apply(klasyfikuj_ryzyko)
 
 # 📋 Filtrowanie
-st.subheader("📋 Filtrowanie według poziomu ryzyka")
-filtr = st.radio("Pokaż tylko:", ["Wszystkie", "Niskie", "Średnie", "Wysokie"], horizontal=True)
+st.subheader("📋 Filtruj według poziomu ryzyka")
+filt = st.radio("Pokaż:", ["Wszystkie", "Niskie", "Średnie", "Wysokie"], horizontal=True)
 
-if filtr != "Wszystkie":
-    df_filtered = edited_df[edited_df["Klasyfikacja"] == filtr]
+if filt != "Wszystkie":
+    df_filtered = edited_df[edited_df["Klasyfikacja"] == filt]
 else:
     df_filtered = edited_df
 
@@ -73,8 +73,9 @@ def koloruj(val):
         return "background-color: #f8d7da"
     return ""
 
+# 📊 Wyświetlenie
 st.subheader("📊 Macierz ryzyka")
-st.dataframe(df_filtered.style.applymap(koloruj, subset=["Klasyfikacja"]), use_container_width=True)
-
-# Aktualizuj sesję
-st.session_state.df = edited_df.drop(columns=["Poziom ryzyka", "Klasyfikacja"])
+st.dataframe(
+    df_filtered.style.applymap(koloruj, subset=["Klasyfikacja"]),
+    use_container_width=True
+)
